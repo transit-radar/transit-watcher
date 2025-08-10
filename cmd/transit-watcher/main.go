@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	GoBusAllDataUrl = "https://api.gobus.vn/transit/data/getAllData"
+	GoBusAllDataUrl  = "https://api.gobus.vn/transit/data/getAllData"
+	GoBusStopDataUrl = "https://api.gobus.vn/transit/stops/geojson"
 )
 
 func main() {
@@ -41,6 +42,9 @@ func main() {
 	}
 	defer conn.Close()
 
+	stopDataCrawler := crawler.New(2*time.Hour, 0*time.Second)
+	defer stopDataCrawler.Close()
+
 	// crawler setup
 	transitDataCrawler := crawler.New(2*time.Hour, 0*time.Second)
 	defer transitDataCrawler.Close()
@@ -48,12 +52,22 @@ func main() {
 	crawler := crawler.New(30*time.Second, 100*time.Millisecond)
 	defer crawler.Close()
 
+	stopDataCrawler.SetURLs([]string{GoBusStopDataUrl})
+
 	transitDataUrls := []string{GoBusAllDataUrl}
 
 	transitDataCrawler.SetURLs(transitDataUrls)
 
 	urls := make(chan []string)
 	defer close(urls)
+
+	go func() {
+		if err := handler.GoBusStopHandler(conn, stopDataCrawler.Result()); err != nil {
+			slog.Error("Error starting GoBus stop handler", "error", err)
+		}
+
+		cancel()
+	}()
 
 	go func() {
 		if err := handler.GoBusDataHandler(conn, transitDataCrawler.Result(), urls); err != nil {

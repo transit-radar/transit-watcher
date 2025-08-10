@@ -72,3 +72,15 @@ func NewVariantInsertData(g *models.GoBusRouteVariantWithDescription) (*dto.Vari
 		EndStopName:   g.EndStop,
 	}, nil
 }
+
+func NewStopImportData(g *models.GoBusStopObject) (*dto.StopImport, error) {
+	return &dto.StopImport{
+		Code:      g.Property.Code,
+		Name:      g.Property.Name,
+		TypeName:  g.Property.TypeName,
+		EbmsID:    g.Property.Id,
+		Active:    true,
+		Latitude:  g.Geometry.Coordinates[1],
+		Longitude: g.Geometry.Coordinates[0],
+	}, nil
+}

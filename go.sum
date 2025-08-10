@@ -4,6 +4,14 @@ github.com/catouberos/transit-radar v0.0.0-20250805172446-b74b4cea50f5 h1:spT0aT
 github.com/catouberos/transit-radar v0.0.0-20250805172446-b74b4cea50f5/go.mod h1:/hT6RVrS6nOeQvvO6Fh5SH1OF9VHB/24oO2uCUV30is=
 github.com/catouberos/transit-radar v0.0.0-20250806043907-c81b885e9692 h1:HHT3BSxxiIUjL6NtJB4P+9fQM0hRY942NF2k1QjVQZw=
 github.com/catouberos/transit-radar v0.0.0-20250806043907-c81b885e9692/go.mod h1:/hT6RVrS6nOeQvvO6Fh5SH1OF9VHB/24oO2uCUV30is=
+github.com/catouberos/transit-radar v0.0.0-20250810152458-060354a64b72 h1:Y+IVf9KyQQmVpOkxZsXNijJCHrX/K/pKU5zRcvcfagU=
+github.com/catouberos/transit-radar v0.0.0-20250810152458-060354a64b72/go.mod h1:+YOdHRy2FOCr4wb/J/0Kzfj28bbQK+ISnU5HMiUcrn0=
+github.com/catouberos/transit-radar v0.0.0-20250810160717-8f00c10aa350 h1:baRHGDpln0lOLC78XfleRxPonxQwT30xYbFnbpU44X4=
+github.com/catouberos/transit-radar v0.0.0-20250810160717-8f00c10aa350/go.mod h1:+YOdHRy2FOCr4wb/J/0Kzfj28bbQK+ISnU5HMiUcrn0=
+github.com/catouberos/transit-radar v0.0.0-20250810165240-0f2a35b9c67c h1:hGdhq3Hf9/QnggBJwpotyFcY6EAtDWBbk+SYAFEXXBo=
+github.com/catouberos/transit-radar v0.0.0-20250810165240-0f2a35b9c67c/go.mod h1:+YOdHRy2FOCr4wb/J/0Kzfj28bbQK+ISnU5HMiUcrn0=
+github.com/catouberos/transit-radar v0.0.0-20250810170719-f8195c15de54 h1:rAdKefo6iLTERxploCYgaxH/Kesc0VxX8kDm+EFqT84=
+github.com/catouberos/transit-radar v0.0.0-20250810170719-f8195c15de54/go.mod h1:+YOdHRy2FOCr4wb/J/0Kzfj28bbQK+ISnU5HMiUcrn0=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/rabbitmq/amqp091-go v1.10.0 h1:STpn5XsHlHGcecLmMFCtg7mqq0RnD+zFr4uzukfVhBw=

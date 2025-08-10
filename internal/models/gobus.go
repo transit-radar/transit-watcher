@@ -52,3 +52,24 @@ type GoBusRouteVariantStop struct {
 	Latitude      float32 `json:"lat"`
 	Longitude     float32 `json:"lng"`
 }
+
+type GoBusStopResponse struct {
+	// here we dont care about additional geojson features
+	Stops []GoBusStopObject `json:"features"`
+}
+
+type GoBusStopObject struct {
+	Geometry GoBusStopGeometry `json:"geometry"`
+	Property GoBusStopProperty `json:"properties"`
+}
+
+type GoBusStopGeometry struct {
+	Coordinates [2]float32 `json:"coordinates"`
+}
+
+type GoBusStopProperty struct {
+	Id       int64  `json:"stopId"`
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	TypeName string `json:"stopType"`
+}
