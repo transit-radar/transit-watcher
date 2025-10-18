@@ -4,11 +4,13 @@ go 1.24.3
 
 toolchain go1.24.5
 
+require github.com/google/uuid v1.6.0
+
 require (
-	github.com/catouberos/geoloc v0.0.0-20250804131617-d15e2dbabe1e
-	github.com/google/uuid v1.6.0
-	github.com/rabbitmq/amqp091-go v1.10.0
-	github.com/wagslane/go-rabbitmq v0.15.0
+	buf.build/gen/go/catou/transit-radar/connectrpc/go v1.19.1-20251017072010-ae2a9f9d5b9c.2
+	buf.build/gen/go/catou/transit-radar/protocolbuffers/go v1.36.10-20251017072010-ae2a9f9d5b9c.1
+	connectrpc.com/connect v1.19.1
+	github.com/cenkalti/backoff/v5 v5.0.3
 )
 
-require github.com/catouberos/transit-radar v0.0.0-20250810170719-f8195c15de54 // indirect
+require google.golang.org/protobuf v1.36.10 // indirect

@@ -2,94 +2,39 @@ package main
 
 import (
 	"context"
-	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
-	"github.com/wagslane/go-rabbitmq"
-
-	"github.com/catouberos/transit-watcher/internal/crawler"
-	"github.com/catouberos/transit-watcher/internal/handler"
-)
-
-const (
-	GoBusAllDataUrl  = "https://api.gobus.vn/transit/data/getAllData"
-	GoBusStopDataUrl = "https://api.gobus.vn/transit/stops/geojson"
+	"buf.build/gen/go/catou/transit-radar/connectrpc/go/api/v1/apiv1connect"
+	"github.com/catouberos/transit-watcher/internal/aggregator"
+	"github.com/catouberos/transit-watcher/providers/gobus"
+	"github.com/catouberos/transit-watcher/providers/multigo"
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
-	// listen for interrupt signal to gracefully shutdown the application
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		<-sigChan
+	routeService := apiv1connect.NewRouteServiceClient(http.DefaultClient, "http://localhost:5001")
+	variantService := apiv1connect.NewVariantServiceClient(http.DefaultClient, "http://localhost:5001")
+	geolocationService := apiv1connect.NewGeolocationServiceClient(http.DefaultClient, "http://localhost:5001")
 
-		cancel()
-	}()
-
-	// queue setup
-	conn, err := rabbitmq.NewConn(
-		"amqp://guest:guest@localhost:5672/",
-		rabbitmq.WithConnectionOptionsLogging,
-	)
-	if err != nil {
-		log.Fatal(err)
+	client := &http.Client{
+		Timeout: 2 * time.Minute,
 	}
-	defer conn.Close()
 
-	stopDataCrawler := crawler.New(2*time.Hour, 0*time.Second)
-	defer stopDataCrawler.Close()
-
-	// crawler setup
-	transitDataCrawler := crawler.New(2*time.Hour, 0*time.Second)
-	defer transitDataCrawler.Close()
-
-	crawler := crawler.New(30*time.Second, 100*time.Millisecond)
-	defer crawler.Close()
-
-	stopDataCrawler.SetURLs([]string{GoBusStopDataUrl})
-
-	transitDataUrls := []string{GoBusAllDataUrl}
-
-	transitDataCrawler.SetURLs(transitDataUrls)
-
-	urls := make(chan []string)
-	defer close(urls)
-
-	go func() {
-		if err := handler.GoBusStopHandler(conn, stopDataCrawler.Result()); err != nil {
-			slog.Error("Error starting GoBus stop handler", "error", err)
-		}
-
-		cancel()
-	}()
-
-	go func() {
-		if err := handler.GoBusDataHandler(conn, transitDataCrawler.Result(), urls); err != nil {
-			slog.Error("Error starting GoBus handler", "error", err)
-		}
-
-		cancel()
-	}()
-
-	go func() {
-		for {
-			crawler.SetURLs(<-urls)
-		}
-	}()
-
-	go func() {
-		if err := handler.MultiGoGeolocationHandler(conn, crawler.Result()); err != nil {
-			slog.Error("Error starting MultiGo handler", "error", err)
-		}
-
-		cancel()
-	}()
+	agg := aggregator.NewAggregator(
+		routeService,
+		variantService,
+		geolocationService,
+		gobus.NewClient(client),
+		multigo.NewClient(client),
+	)
+	agg.Aggregate(context.Background())
 
 	<-ctx.Done()
+	slog.Info("attempt to gracefully shutdown")
 }

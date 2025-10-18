@@ -4,11 +4,33 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"github.com/catouberos/transit-watcher/providers/gobus"
 )
 
 const (
 	OpTimeLayout = "15:04"
 )
+
+func FilterTransitRoutes(routes []gobus.Route) ([]gobus.Route, error) {
+	filtered := []gobus.Route{}
+
+	for _, route := range routes {
+		from, to, err := ParseOperationTime(route.Info.OperationTime)
+		if err != nil {
+			return nil, err
+		}
+
+		// skip non-operating routes
+		if time.Now().Before(from) || to.After(time.Now().Add(-2*time.Hour)) {
+			continue
+		}
+
+		filtered = append(filtered, route)
+	}
+
+	return filtered, nil
+}
 
 func ParseOperationTime(operationTime string) (from, to time.Time, err error) {
 	unparsedTimes := strings.Split(operationTime, " - ")

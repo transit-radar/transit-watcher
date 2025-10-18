@@ -1,8 +1,8 @@
-package models
+package multigo
 
 import "time"
 
-type MultiGoGeolocation struct {
+type Geolocation struct {
 	Id               int64     `json:"Id"`
 	Degree           float32   `json:"Deg"`
 	Latitude         float32   `json:"Lat"`
