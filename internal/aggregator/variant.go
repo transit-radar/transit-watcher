@@ -7,64 +7,67 @@ import (
 	apiv1 "buf.build/gen/go/catou/transit-radar/protocolbuffers/go/api/v1"
 	"connectrpc.com/connect"
 	"github.com/catouberos/transit-watcher/providers/gobus"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func (a *aggregator) processVariant(ctx context.Context, routeID int64, variant gobus.RouteVariant, description string) (int64, error) {
-	ebmsID, err := variant.Id.Int64()
+func (a *aggregator) processVariant(ctx context.Context, routeID string, variant gobus.RouteVariant, description string) (*apiv1.Variant, error) {
+	response, err := a.variantService.ListVariants(ctx, connect.NewRequest(&apiv1.ListVariantsRequest{
+		Filter: "",
+	}))
 	if err != nil {
-		return 0, err
+		slog.InfoContext(ctx, "cannot get variant by ebms ID", "error", err)
+		return nil, err
 	}
 
-	response, err := a.variantService.GetVariantByEbmsID(ctx, &connect.Request[apiv1.GetVariantByEbmsIDRequest]{
-		Msg: &apiv1.GetVariantByEbmsIDRequest{EbmsId: ebmsID, RouteId: routeID},
+	if len(response.Msg.Variants) == 0 {
+		// create
+		slog.InfoContext(ctx, "no existing variant, creating one", "ebmsID", variant.Id)
+		return a.createVariant(ctx, routeID, variant)
+	}
+
+	apiVariant := response.Msg.Variants[0]
+	slog.InfoContext(ctx, "updating existing variant", "id", apiVariant.Id)
+	return a.updateVariant(ctx, routeID, apiVariant, variant)
+}
+
+func (a *aggregator) createVariant(ctx context.Context, routeID string, variant gobus.RouteVariant) (*apiv1.Variant, error) {
+	attributes, err := structpb.NewStruct(map[string]any{
+		"ebmsID": variant.Id,
 	})
 	if err != nil {
-		// continue-able error
-		slog.InfoContext(ctx, "cannot get variant by ebms ID", "error", err)
+		return nil, err
 	}
 
-	if response == nil {
-		slog.InfoContext(ctx, "no existing variant, creating one", "ebmsID", variant.Id)
-		apiVariant, err := a.variantService.CreateVariant(ctx, &connect.Request[apiv1.CreateVariantRequest]{
-			Msg: &apiv1.CreateVariantRequest{
-				Name:          variant.Name,
-				EbmsId:        &ebmsID,
-				IsOutbound:    variant.IsOutbound,
-				RouteId:       routeID,
-				Description:   &description,
-				ShortName:     &variant.ShortName,
-				Distance:      &variant.Distance,
-				Duration:      &variant.Duration,
-				StartStopName: &variant.StartStop,
-				EndStopName:   &variant.EndStop,
-			},
-		})
-		if err != nil {
-			slog.ErrorContext(ctx, "cannot create new variant", "error", err)
-			return 0, err
-		}
-		return apiVariant.Msg.Variant.Id, nil
+	apiVariant, err := a.variantService.CreateVariant(ctx, connect.NewRequest(&apiv1.CreateVariantRequest{
+		RouteId:    routeID,
+		Name:       variant.Name,
+		ShortName:  &variant.ShortName,
+		Distance:   &variant.Distance,
+		Direction:  0,
+		Duration:   &variant.Duration,
+		Attributes: attributes,
+	}))
+	if err != nil {
+		return nil, err
 	}
 
-	slog.InfoContext(ctx, "updating existing variant", "id", response.Msg.Variant.Id, "ebmsID", variant.Id)
+	return apiVariant.Msg.Variant, nil
+}
+
+func (a *aggregator) updateVariant(ctx context.Context, routeID string, existing *apiv1.Variant, variant gobus.RouteVariant) (*apiv1.Variant, error) {
 	apiVariant, err := a.variantService.UpdateVariant(ctx, &connect.Request[apiv1.UpdateVariantRequest]{
 		Msg: &apiv1.UpdateVariantRequest{
-			Id:            response.Msg.Variant.Id,
-			Name:          &variant.Name,
-			EbmsId:        &ebmsID,
-			IsOutbound:    &variant.IsOutbound,
-			RouteId:       &routeID,
-			Description:   &description,
-			ShortName:     &variant.ShortName,
-			Distance:      &variant.Distance,
-			Duration:      &variant.Duration,
-			StartStopName: &variant.StartStop,
-			EndStopName:   &variant.EndStop,
+			Id:        existing.Id,
+			Name:      &variant.Name,
+			RouteId:   &routeID,
+			ShortName: &variant.ShortName,
+			Distance:  &variant.Distance,
+			Duration:  &variant.Duration,
 		},
 	})
 	if err != nil {
-		slog.ErrorContext(ctx, "cannot update new variant", "error", err)
-		return 0, err
+		return nil, err
 	}
-	return apiVariant.Msg.Variant.Id, nil
+
+	return apiVariant.Msg.Variant, nil
 }

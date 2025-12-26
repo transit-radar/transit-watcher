@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	apiv1 "buf.build/gen/go/catou/transit-radar/protocolbuffers/go/api/v1"
 	"github.com/catouberos/transit-watcher/providers/gobus"
 	"github.com/cenkalti/backoff/v5"
 )
@@ -43,10 +44,10 @@ func (a *aggregator) Aggregate(ctx context.Context) error {
 
 	// process routes
 	for _, route := range routes {
-		routeID, err := backoff.Retry(
+		apiRoute, err := backoff.Retry(
 			ctx,
-			func() (int64, error) {
-				return a.processRoute(ctx, route)
+			func() (*apiv1.Route, error) {
+				return a.processRoute(ctx, &route)
 			},
 			backoff.WithBackOff(backoff.NewExponentialBackOff()),
 			backoff.WithMaxTries(3),
@@ -64,7 +65,7 @@ func (a *aggregator) Aggregate(ctx context.Context) error {
 				description = route.Info.OutboundDescription
 			}
 
-			_, err = a.processVariant(ctx, routeID, variant, description)
+			_, err = a.processVariant(ctx, apiRoute.Id, variant, description)
 			if err != nil {
 				slog.ErrorContext(ctx, "cannot process variant", "error", err)
 				continue
