@@ -7,9 +7,8 @@ toolchain go1.24.5
 require github.com/google/uuid v1.6.0
 
 require (
-	buf.build/gen/go/catou/transit-radar/connectrpc/go v1.19.1-20251224091833-811a6157b8b0.2
 	buf.build/gen/go/catou/transit-radar/protocolbuffers/go v1.36.11-20251224091833-811a6157b8b0.1
-	connectrpc.com/connect v1.19.1
+	buf.build/gen/go/transit-radar/apis/protocolbuffers/go v1.36.11-20260203155139-53a03f6fff43.1
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/stretchr/testify v1.11.1
 	github.com/twmb/franz-go v1.20.6
@@ -23,6 +22,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/gohugoio/hashstructure v0.6.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect

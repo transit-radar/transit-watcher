@@ -1,18 +1,15 @@
-package aggregator
+package utils
 
 import (
-	"context"
 	"errors"
-	"fmt"
-	"log/slog"
 	"regexp"
 	"strings"
 
-	apiv1 "buf.build/gen/go/catou/transit-radar/protocolbuffers/go/api/v1"
-	"connectrpc.com/connect"
+	radarv1 "buf.build/gen/go/transit-radar/apis/protocolbuffers/go/transit/radar/v1"
 	"github.com/catouberos/transit-watcher/providers/gobus"
 )
 
+/*
 func (a *aggregator) processRoute(ctx context.Context, route *gobus.Route) (*apiv1.Route, error) {
 	ebmsID, err := route.Id.Int64()
 	if err != nil {
@@ -57,79 +54,37 @@ func (a *aggregator) processRoute(ctx context.Context, route *gobus.Route) (*api
 
 	return existing, nil
 }
+*/
 
-func (a *aggregator) createRoute(ctx context.Context, route *gobus.Route, routeType apiv1.RouteType) (*apiv1.Route, error) {
-	response, err := a.routeService.CreateRoute(ctx, connect.NewRequest(&apiv1.CreateRouteRequest{
-		Number: route.Number,
-		Name:   route.Name,
-		Type:   routeType,
-		Active: true,
-	}))
-	if err != nil {
-		slog.Error("cannot create new route", "error", err)
-		return nil, err
-	}
-
-	return response.Msg.Route, nil
-}
-
-func (a *aggregator) updateRoute(ctx context.Context, existing *apiv1.Route, route *gobus.Route, routeType apiv1.RouteType) (*apiv1.Route, error) {
-	// update the upstream with current data
-	active := true
-	response, err := a.routeService.UpdateRoute(ctx, connect.NewRequest(&apiv1.UpdateRouteRequest{
-		Id:     existing.Id,
-		Number: &route.Number,
-		Name:   &route.Name,
-		Active: &active,
-	}))
-	if err != nil {
-		slog.Error("cannot update new route", "error", err)
-		return nil, err
-	}
-
-	return response.Msg.Route, nil
-}
-
-func shouldUpdateRoute(route *gobus.Route, apiRoute *apiv1.Route) bool {
-	if apiRoute.Name == route.Name &&
-		apiRoute.Number == route.Number &&
-		apiRoute.Active == true {
-
-		return false
-	}
-
-	return true
-}
-
-func routeType(route *gobus.Route) (apiv1.RouteType, error) {
+func RouteType(route *gobus.Route) (radarv1.RouteType, error) {
 	// matches HCMC Metro
 	if strings.HasPrefix(route.Number, "MRT") {
-		return apiv1.RouteType_ROUTE_TYPE_METRO, nil
+		return radarv1.RouteType_ROUTE_TYPE_METRO, nil
 	}
 
 	// matches Saigon Waterbus
 	if strings.HasPrefix(route.Number, "SWB") {
-		return apiv1.RouteType_ROUTE_TYPE_FERRY, nil
+		return radarv1.RouteType_ROUTE_TYPE_FERRY, nil
 	}
 
 	// matches Public Tour Bus
 	if strings.HasPrefix(route.Number, "DL") {
-		return apiv1.RouteType_ROUTE_TYPE_BUS, nil
+		return radarv1.RouteType_ROUTE_TYPE_BUS, nil
 	}
 
 	// exclusively match Vinbus "D-" Bus
 	if strings.HasPrefix(route.Number, "D") {
-		return apiv1.RouteType_ROUTE_TYPE_BUS, nil
+		return radarv1.RouteType_ROUTE_TYPE_BUS, nil
 	}
 
 	// matches Public Bus
 	re, err := regexp.Compile("[0-9]+(-[0-9]+)?[A-Z]?")
 	if err != nil {
-		return apiv1.RouteType_ROUTE_TYPE_UNSPECIFIED, err
+		return radarv1.RouteType_ROUTE_TYPE_UNSPECIFIED, err
 	}
 	if re.MatchString(route.Number) {
-		return apiv1.RouteType_ROUTE_TYPE_BUS, nil
+		return radarv1.RouteType_ROUTE_TYPE_BUS, nil
 	}
 
-	return apiv1.RouteType_ROUTE_TYPE_UNSPECIFIED, errors.New("unhandled route type")
+	return radarv1.RouteType_ROUTE_TYPE_UNSPECIFIED, errors.New("unhandled route type")
 }
