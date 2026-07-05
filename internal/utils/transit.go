@@ -1,11 +1,11 @@
-package handler
+package utils
 
 import (
 	"errors"
 	"strings"
 	"time"
 
-	"github.com/catouberos/transit-watcher/providers/gobus"
+	"codeberg.org/transit-radar/transit-watcher/provider/gobus"
 )
 
 const (

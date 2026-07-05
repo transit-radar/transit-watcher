@@ -1,0 +1,4 @@
+kafka:
+  enable: true
+redis:
+  enable: true

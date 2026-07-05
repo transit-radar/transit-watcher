@@ -21,7 +21,11 @@
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
 
     # Nixpkgs instantiated for supported system types.
-    nixpkgsFor = forAllSystems (system: import nixpkgs {inherit system;});
+    nixpkgsFor = forAllSystems (system:
+      import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      });
   in {
     # Provide some binary packages for selected system types.
     packages = forAllSystems (system: let
@@ -46,14 +50,50 @@
 
         vendorHash = "sha256-pQpattmS9VmO3ZIQUFn66az8GSmB4IvYhTTCFn6SUmo=";
       };
+
+      tansu = pkgs.rustPlatform.buildRustPackage rec {
+        pname = "tansu";
+        version = "0.5.11";
+
+        src = pkgs.fetchFromGitHub {
+          owner = "tansu-io";
+          repo = pname;
+          rev = "v${version}";
+          hash = "sha256-klC1ii4kGH0nKtg+yXR5KifGCFmuAWJjyUqO0DAmm2c=";
+        };
+
+        cargoLock.lockFile = "${src}/Cargo.lock";
+
+        cargoBuildFlags = [
+          "--bin tansu"
+        ];
+
+        doCheck = false;
+        buildNoDefaultFeatures = true;
+        buildFeatures = ["postgres" "delta" "dynostore" "iceberg" "libsql" "parquet"];
+      };
     });
 
     # Add dependencies that are only needed for development
     devShells = forAllSystems (system: let
       pkgs = nixpkgsFor.${system};
+      tansu = self.packages.${system}.tansu;
     in {
       default = pkgs.mkShell {
-        buildInputs = with pkgs; [go gopls gotools go-tools temporal-cli];
+        buildInputs = with pkgs;
+          [
+            go
+            gopls
+            gotools
+            go-tools
+            podman-compose
+            kafkactl
+            redis
+            protobuf
+            antigravity-cli
+            redpanda-client
+          ]
+          ++ [tansu];
       };
     });
 

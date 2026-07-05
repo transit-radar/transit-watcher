@@ -1,42 +1,50 @@
 package aggregator
 
 import (
-	"context"
-
-	"buf.build/gen/go/catou/transit-radar/connectrpc/go/api/v1/apiv1connect"
-	"github.com/catouberos/transit-watcher/providers/gobus"
-	"github.com/catouberos/transit-watcher/providers/multigo"
+	"github.com/IBM/sarama"
+	"codeberg.org/transit-radar/transit-watcher/internal/events"
+	"codeberg.org/transit-radar/transit-watcher/internal/processor"
+	"codeberg.org/transit-radar/transit-watcher/internal/processor/v1beta1"
+	"codeberg.org/transit-radar/transit-watcher/internal/store"
+	"codeberg.org/transit-radar/transit-watcher/provider/gobus"
+	"codeberg.org/transit-radar/transit-watcher/provider/multigo"
+	"github.com/redis/go-redis/v9"
 )
 
-type Aggregator interface {
-	Aggregate(context.Context) error
-}
+type Aggregator struct {
+	route       processor.RouteProcessor
+	variant     processor.VariantProcessor
+	geolocation processor.GeolocationProcessor
 
-type aggregator struct {
-	routeService       apiv1connect.RouteServiceClient
-	variantService     apiv1connect.VariantServiceClient
-	geolocationService apiv1connect.GeolocationServiceClient
-	stopService        apiv1connect.StopServiceClient
-
-	goBusClient   *gobus.Client
-	multiGoClient *multigo.Client
+	goBus   gobus.Client
+	multiGo multigo.Client
 }
 
 func NewAggregator(
-	routeService apiv1connect.RouteServiceClient,
-	variantService apiv1connect.VariantServiceClient,
-	geolocationService apiv1connect.GeolocationServiceClient,
-	stopService apiv1connect.StopServiceClient,
-	goBusClient *gobus.Client,
-	multiGoClient *multigo.Client,
-) Aggregator {
-	return &aggregator{
-		routeService:       routeService,
-		variantService:     variantService,
-		geolocationService: geolocationService,
-		stopService:        stopService,
+	kafka sarama.Client,
+	redis *redis.Client,
+	goBus gobus.Client,
+	multiGo multigo.Client,
+) *Aggregator {
+	eventHandler, err := events.NewKafkaEventHandler(kafka)
+	if err != nil {
+		panic(err)
+	}
 
-		goBusClient:   goBusClient,
-		multiGoClient: multiGoClient,
+	store := store.NewRedisStore(redis)
+
+	route := v1beta1.NewRouteProcessor(nil, eventHandler, store)
+	variant := v1beta1.NewVariantProcessor(nil, eventHandler, store)
+	geolocation := v1beta1.NewGeolocationProcessor(nil, eventHandler, store)
+
+	return &Aggregator{
+		// processors
+		route:       route,
+		variant:     variant,
+		geolocation: geolocation,
+
+		// clients
+		goBus:   goBus,
+		multiGo: multiGo,
 	}
 }
