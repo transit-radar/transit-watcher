@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	processorv1beta1 "buf.build/gen/go/transit-radar/apis/protocolbuffers/go/transit/processor/v1beta1"
+	"codeberg.org/transit-radar/transit-watcher/internal/mapper"
 	"codeberg.org/transit-radar/transit-watcher/internal/models"
 	"github.com/gohugoio/hashstructure"
 	latlng "google.golang.org/genproto/googleapis/type/latlng"
@@ -21,10 +22,16 @@ func MapRoute(route models.Route) (*processorv1beta1.Route, error) {
 		return nil, err
 	}
 
+	routeType, err := mapper.RouteType(route)
+	if err != nil {
+		return nil, err
+	}
+
 	r := &processorv1beta1.Route{
 		Id:     id,
 		Number: route.Number,
 		Hash:   hash,
+		Type:   routeType,
 	}
 
 	return r, nil
@@ -66,6 +73,11 @@ func MapGeolocation(geolocation models.Geolocation) (*processorv1beta1.Geolocati
 		return nil, err
 	}
 
+	routeID, err := MapIdentity(geolocation.RouteID)
+	if err != nil {
+		return nil, err
+	}
+
 	g := &processorv1beta1.Geolocation{
 		Degree: float64(geolocation.Degree),
 		Location: &latlng.LatLng{
@@ -74,6 +86,7 @@ func MapGeolocation(geolocation models.Geolocation) (*processorv1beta1.Geolocati
 		},
 		Speed:     float64(geolocation.Speed),
 		VehicleId: vehicleID,
+		RouteId:   routeID,
 		VariantId: variantID,
 		Timestamp: timestamppb.New(geolocation.Timestamp),
 		Hash:      hash,

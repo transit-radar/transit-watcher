@@ -59,56 +59,95 @@ func (a *Aggregator) AggregateGoBusStops(ctx context.Context) error {
 }
 
 func (a *Aggregator) processRoute(ctx context.Context, route gobus.Route) (models.Route, error) {
+	logger := slog.With(slog.Any("routeID", route.Id))
+
 	r, err := mapper.MapGoBusRoute(route)
 	if err != nil {
 		return models.Route{}, err
 	}
 
-	err = a.route.Validate(ctx, r)
-	if errors.Is(err, processor.ErrStaleData) {
-		return r, nil
+	if err := a.enrichRoute(ctx, &r); err != nil {
+		logger.WarnContext(ctx, "failed to enrich route with extra metadata", "error", err)
 	}
-	if err != nil {
+
+	if err := a.route.Validate(ctx, r); err != nil {
+		if errors.Is(err, processor.ErrStaleData) {
+			logger.InfoContext(ctx, "retrieved route is stale, skipping...")
+			return r, nil
+		}
+
 		return r, err
 	}
 
-	err = a.route.Publish(ctx, r)
-	if err != nil {
+	if err := a.route.Publish(ctx, r); err != nil {
 		return r, err
 	}
+	logger.DebugContext(ctx, "published route payload")
 
-	err = a.route.Memoize(ctx, r)
-	if err != nil {
+	if err := a.route.Memoize(ctx, r); err != nil {
 		return r, err
 	}
+	logger.DebugContext(ctx, "memoized retrieved route as latest")
 
 	return r, nil
 }
 
+func (a *Aggregator) enrichRoute(ctx context.Context, route *models.Route) error {
+	return nil
+
+	logger := slog.With(slog.Any("routeID", route.ID.Value))
+
+	r, err := a.ebms.GetRouteByID(ctx, route.ID.Value)
+	if err != nil {
+		logger.ErrorContext(ctx, "failed to retrieve EBMS route information", "error", err)
+		return err
+	}
+
+	route.Color = r.Color
+	route.Type = r.Type
+	route.Organization = r.Orgs
+	route.TripDuration = r.TimeOfTrip
+	route.Headway = r.Headway
+	route.OutboundName = r.OutBoundName
+	route.InboundName = r.InBoundName
+	route.OutboundDescription = r.OutBoundDescription
+	route.InboundDescription = r.InBoundDescription
+	route.TotalTrip = r.TotalTrip
+	route.Tickets = r.Tickets
+	route.OperationTime = models.OperationTime{
+		From: r.OperationTime.From,
+		To:   r.OperationTime.To,
+	}
+
+	return nil
+}
+
 func (a *Aggregator) processVariant(ctx context.Context, route models.Route, variant gobus.RouteVariant) error {
+	logger := slog.With(slog.Any("routeID", route.ID.Value), slog.Any("variantID", variant.Id))
+
 	v, err := mapper.MapGoBusVariant(variant)
 	if err != nil {
 		return err
 	}
-	v.RouteID = route.ID
 
-	err = a.variant.Validate(ctx, v)
-	if errors.Is(err, processor.ErrStaleData) {
-		return nil
-	}
-	if err != nil {
+	if err := a.variant.Validate(ctx, route, v); err != nil {
+		if errors.Is(err, processor.ErrStaleData) {
+			logger.InfoContext(ctx, "retrieved variant is stale, skipping...")
+			return nil
+		}
+
 		return err
 	}
 
-	err = a.variant.Publish(ctx, v)
-	if err != nil {
+	if err := a.variant.Publish(ctx, route, v); err != nil {
 		return err
 	}
+	logger.DebugContext(ctx, "published variant payload")
 
-	err = a.variant.Memoize(ctx, v)
-	if err != nil {
+	if err := a.variant.Memoize(ctx, route, v); err != nil {
 		return err
 	}
+	logger.DebugContext(ctx, "memoized retrieved variant as latest")
 
 	return nil
 }

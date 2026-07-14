@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	radarv1 "buf.build/gen/go/transit-radar/apis/protocolbuffers/go/transit/radar/v1"
-	"codeberg.org/transit-radar/transit-watcher/provider/gobus"
+	"codeberg.org/transit-radar/transit-watcher/internal/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,7 +46,7 @@ func TestRouteType(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assert := assert.New(t)
-			result, err := RouteType(&gobus.Route{Number: test.routeNumber})
+			result, err := RouteType(models.Route{Number: test.routeNumber})
 			assert.NoError(err)
 			assert.Equal(test.routeType, result)
 		})

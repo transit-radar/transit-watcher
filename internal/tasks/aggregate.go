@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"codeberg.org/transit-radar/transit-watcher/internal/aggregator"
+	"codeberg.org/transit-radar/transit-watcher/pkg/otelhelper"
 	"github.com/hibiken/asynq"
 )
 
@@ -34,5 +35,26 @@ func (h *aggregateMultiGoGeolocationHandler) ProcessTask(ctx context.Context, t 
 		return err
 	}
 
+	ctx = otelhelper.ContextFromHeader(ctx, t.Headers())
+
 	return h.aggregator.AggregateMultiGoGeolocation(ctx, params.RouteID, params.VariantID, params.Direction)
+}
+
+type aggregateTTGTGeolocationHandler struct {
+	aggregator *aggregator.Aggregator
+}
+
+func NewAggregateTTGTGeolocationHandler(aggregator *aggregator.Aggregator) asynq.Handler {
+	return &aggregateTTGTGeolocationHandler{aggregator}
+}
+
+func (h *aggregateTTGTGeolocationHandler) ProcessTask(ctx context.Context, t *asynq.Task) error {
+	var params AggregateTTGTGeolocationParams
+	if err := json.Unmarshal(t.Payload(), &params); err != nil {
+		return err
+	}
+
+	ctx = otelhelper.ContextFromHeader(ctx, t.Headers())
+
+	return h.aggregator.AggregateTTGTGeolocation(ctx, params.RouteID, params.VariantID)
 }

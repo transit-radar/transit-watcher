@@ -25,7 +25,7 @@ type RouteProcessor interface {
 }
 
 type VariantProcessor interface {
-	Validate(context.Context, models.Variant) error
-	Publish(context.Context, models.Variant) error
-	Memoize(context.Context, models.Variant) error
+	Validate(context.Context, models.Route, models.Variant) error
+	Publish(context.Context, models.Route, models.Variant) error
+	Memoize(context.Context, models.Route, models.Variant) error
 }

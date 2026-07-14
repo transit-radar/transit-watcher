@@ -10,11 +10,13 @@ import (
 )
 
 type kafkaEventHandler struct {
+	name string
+
 	kafka sarama.Client
 }
 
-func NewKafkaEventHandler(kafka sarama.Client) (*kafkaEventHandler, error) {
-	return &kafkaEventHandler{kafka: kafka}, nil
+func NewKafkaEventHandler(name string, kafka sarama.Client) (*kafkaEventHandler, error) {
+	return &kafkaEventHandler{name: name, kafka: kafka}, nil
 }
 
 func (e *kafkaEventHandler) Send(ctx context.Context, topic string, event cloudevents.Event, opts ...client.Option) error {

@@ -1,0 +1,20 @@
+application:
+  name: scheduler.watcher.transitradar.app
+redis:
+  address: localhost:6379
+  enable: true
+task:
+  aggregate:
+    enable: true
+    crontab: "5 23,0,1,11,12,13 * * *"
+    maxRetry: 0
+  multiGoGeolocation:
+    enable: true
+    crontab: "@every 30s"
+    maxRetry: 0
+    unique: 30s
+  ttgtGeolocation:
+    enable: true
+    crontab: "@every 1s"
+    maxRetry: 0
+    unique: 1s

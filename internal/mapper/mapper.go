@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	radarv1 "buf.build/gen/go/transit-radar/apis/protocolbuffers/go/transit/radar/v1"
-	"codeberg.org/transit-radar/transit-watcher/provider/gobus"
+	"codeberg.org/transit-radar/transit-watcher/internal/models"
 )
 
-func RouteType(route *gobus.Route) (radarv1.RouteType, error) {
+func RouteType(route models.Route) (radarv1.RouteType, error) {
 	// matches HCMC Metro
 	if strings.HasPrefix(route.Number, "MRT") {
 		return radarv1.RouteType_ROUTE_TYPE_METRO, nil

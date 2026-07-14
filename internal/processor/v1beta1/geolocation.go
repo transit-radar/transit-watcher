@@ -46,13 +46,13 @@ func (p *geolocationProcessor) Publish(ctx context.Context, geolocation models.G
 		return err
 	}
 
-	event, err := events.CreateEvent(r)
+	event, err := p.eventHandler.CreateEvent(r)
 	if err != nil {
 		return err
 	}
 
 	return p.eventHandler.Send(ctx,
-		EventKey(p.config.Kafka.Topic.Geolocation),
+		p.config.Kafka.Topic.Geolocation,
 		event,
 	)
 }

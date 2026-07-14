@@ -45,13 +45,13 @@ func (p *routeProcessor) Publish(ctx context.Context, route models.Route) error 
 		return err
 	}
 
-	event, err := events.CreateEvent(r)
+	event, err := p.eventHandler.CreateEvent(r)
 	if err != nil {
 		return err
 	}
 
 	return p.eventHandler.Send(ctx,
-		EventKey(p.config.Kafka.Topic.Route),
+		p.config.Kafka.Topic.Route,
 		event,
 	)
 }
@@ -59,6 +59,17 @@ func (p *routeProcessor) Publish(ctx context.Context, route models.Route) error 
 func (p *routeProcessor) Memoize(ctx context.Context, route models.Route) error {
 	if err := p.store.Set(ctx, CacheKey("route", route.ID.Value), route); err != nil {
 		return err
+	}
+
+	switch route.RouteType {
+	case models.RouteTypeBus:
+		if err := p.store.Add(ctx, CacheKey("routes", "bus"), route.ID.Value); err != nil {
+			return err
+		}
+	case models.RouteTypeMetro:
+		if err := p.store.Add(ctx, CacheKey("routes", "metro"), route.ID.Value); err != nil {
+			return err
+		}
 	}
 
 	if err := p.store.Add(ctx, CacheKey("routes"), route.ID.Value); err != nil {

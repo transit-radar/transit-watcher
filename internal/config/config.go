@@ -10,24 +10,12 @@ import (
 type Config struct {
 	Application ApplicationConfig `mapstructure:"application"`
 
-	Task TaskConfig `mapstructure:"task"`
-
 	Kafka KafkaConfig `mapstructure:"kafka"`
 	Redis RedisConfig `mapstructure:"redis"`
 }
 
 type ApplicationConfig struct {
 	Name string `mapstructure:"name"`
-}
-
-type TaskConfig struct {
-	Data        TaskSpec `mapstructure:"data"`
-	Geolocation TaskSpec `mapstructure:"geolocation"`
-}
-
-type TaskSpec struct {
-	Enable  bool   `mapstructure:"enable"`
-	Crontab string `mapstructure:"crontab"`
 }
 
 // services configuration
@@ -49,11 +37,13 @@ type RedisConfig struct {
 }
 
 func SetDefault() {
-	viper.SetDefault("kafka.seeds", []string{"localhost:9092"})
-	viper.SetDefault("kafka.publishTopics.route", "route")
-	viper.SetDefault("kafka.publishTopics.variant", "variant")
-	viper.SetDefault("kafka.publishTopics.stop", "stop")
-	viper.SetDefault("kafka.publishTopics.geolocation", "geolocation")
+	viper.SetDefault("application.name", "transit-radar")
+
+	viper.SetDefault("kafka.seeds", []string{"localhost:19092"})
+	viper.SetDefault("kafka.publishTopics.route", "processor.v1beta1.route")
+	viper.SetDefault("kafka.publishTopics.variant", "processor.v1beta1.variant")
+	viper.SetDefault("kafka.publishTopics.stop", "processor.v1beta1.stop")
+	viper.SetDefault("kafka.publishTopics.geolocation", "processor.v1beta1.geolocation")
 
 	viper.SetDefault("redis.address", "localhost:6379")
 

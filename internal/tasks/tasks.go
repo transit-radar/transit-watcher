@@ -8,18 +8,24 @@ import (
 
 const (
 	TaskScheduleMultiGoGeolocation = "task:schedule:multigo:geolocation"
+	TaskScheduleTTGTGeolocation    = "task:schedule:ttgt:geolocation"
 
 	TaskAggregateGoBus              = "task:aggregate:gobus"
 	TaskAggregateGoBusStops         = "task:aggregate:gobus:stop"
 	TaskAggregateMultiGoGeolocation = "task:aggregate:multigo:geolocation"
+	TaskAggregateTTGTGeolocation    = "task:aggregate:ttgt:geolocation"
 )
 
 func NewScheduleMultiGoGeolocation() (*asynq.Task, error) {
-	return asynq.NewTask(TaskScheduleMultiGoGeolocation, nil), nil
+	return asynq.NewTaskWithHeaders(TaskScheduleMultiGoGeolocation, nil, map[string]string{}), nil
+}
+
+func NewScheduleTTGTGeolocation() (*asynq.Task, error) {
+	return asynq.NewTaskWithHeaders(TaskScheduleTTGTGeolocation, nil, map[string]string{}), nil
 }
 
 func NewAggregateGoBusTask() (*asynq.Task, error) {
-	return asynq.NewTask(TaskAggregateGoBus, nil), nil
+	return asynq.NewTaskWithHeaders(TaskAggregateGoBus, nil, map[string]string{}), nil
 }
 
 func NewAggregateGoBusStopsTask() (*asynq.Task, error) {
@@ -38,5 +44,19 @@ func NewAggregateMultiGoGeolocationTask(params AggregateMultiGoGeolocationParams
 		return nil, err
 	}
 
-	return asynq.NewTask(TaskAggregateMultiGoGeolocation, payload), nil
+	return asynq.NewTaskWithHeaders(TaskAggregateMultiGoGeolocation, payload, map[string]string{}), nil
+}
+
+type AggregateTTGTGeolocationParams struct {
+	RouteID   string
+	VariantID string
+}
+
+func NewAggregateTTGTGeolocationTask(params AggregateTTGTGeolocationParams) (*asynq.Task, error) {
+	payload, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return asynq.NewTaskWithHeaders(TaskAggregateTTGTGeolocation, payload, map[string]string{}), nil
 }

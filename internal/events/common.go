@@ -6,7 +6,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func CreateEvent[T proto.Message](message T) (cloudevents.Event, error) {
+const (
+	ApplicationCloudEventsProtobuf = "application/cloudevents+protobuf"
+)
+
+func (c *kafkaEventHandler) CreateEvent(message proto.Message) (cloudevents.Event, error) {
 	payload, err := proto.Marshal(message)
 	if err != nil {
 		return cloudevents.NewEvent(), err
@@ -14,10 +18,10 @@ func CreateEvent[T proto.Message](message T) (cloudevents.Event, error) {
 
 	event := cloudevents.NewEvent()
 	event.SetID(uuid.NewString())
-	event.SetSpecVersion("1.0")
-	event.SetSource("example/uri")
+	event.SetSource(c.name)
+	event.SetSpecVersion(cloudevents.VersionV1)
 	event.SetType(string(message.ProtoReflect().Descriptor().Name()))
-	event.SetData("application/protobuf", payload)
+	event.SetData(ApplicationCloudEventsProtobuf, payload)
 
 	return event, nil
 }

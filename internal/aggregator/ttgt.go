@@ -7,32 +7,27 @@ import (
 
 	"codeberg.org/transit-radar/transit-watcher/internal/mapper"
 	"codeberg.org/transit-radar/transit-watcher/internal/processor"
-	"codeberg.org/transit-radar/transit-watcher/provider/multigo"
+	"codeberg.org/transit-radar/transit-watcher/provider/ttgt"
 )
 
-func (a *Aggregator) AggregateMultiGoGeolocation(ctx context.Context, routeId, variantId string, direction int) error {
+func (a *Aggregator) AggregateTTGTGeolocation(ctx context.Context, routeId, variantId string) error {
 	logger := slog.With(
 		slog.String("routeID", routeId),
 		slog.String("variantID", variantId),
-		slog.Int("direction", direction),
 	)
 
-	if err := a.rateLimit.Wait(ctx); err != nil {
-		return err
-	}
-
-	geolocations, err := a.multiGo.ListGeolocations(ctx, multigo.ListGeolocationParams{
-		RouteID:   &routeId,
-		Direction: &direction,
+	geolocations, err := a.ttgt.ListTransitVehicles(ctx, ttgt.ListTransitVehiclesParams{
+		RouteID:   routeId,
+		VariantID: variantId,
 	})
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to retrieve geolocation from MultiGo", "error", err)
+		logger.ErrorContext(ctx, "failed to retrieve geolocation from TTGT", "error", err)
 		return err
 	}
-	logger.InfoContext(ctx, "successfully retrieve geolocation from MultiGo", "geolocations", geolocations)
+	logger.InfoContext(ctx, "successfully retrieve geolocation from TTGT", "geolocations", geolocations)
 
-	for _, geolocation := range geolocations {
-		if err := a.processGeolocation(ctx, geolocation, routeId, variantId, direction); err != nil {
+	for _, vehicle := range geolocations.Vehicles {
+		if err := a.processTTGTGeolocation(ctx, vehicle, routeId, variantId); err != nil {
 			logger.ErrorContext(ctx, "error processing geolocation", "error", err)
 		}
 	}
@@ -40,17 +35,13 @@ func (a *Aggregator) AggregateMultiGoGeolocation(ctx context.Context, routeId, v
 	return nil
 }
 
-func (a *Aggregator) processGeolocation(ctx context.Context, geolocation multigo.Geolocation, routeId, variantId string, direction int) error {
+func (a *Aggregator) processTTGTGeolocation(ctx context.Context, vehicle ttgt.TransitVehicle, routeId, variantId string) error {
 	logger := slog.With(
 		slog.String("routeID", routeId),
 		slog.String("variantID", variantId),
-		slog.Int("direction", direction),
 	)
 
-	g, err := mapper.MapMultiGoGeolocation(geolocation, variantId)
-	if err != nil {
-		return err
-	}
+	g := mapper.MapTTGTGeolocation(vehicle, routeId, variantId)
 
 	if err := a.geolocation.Validate(ctx, g); err != nil {
 		if errors.Is(err, processor.ErrStaleData) {
