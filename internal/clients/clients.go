@@ -2,10 +2,11 @@ package clients
 
 import (
 	"errors"
+	"fmt"
 
-	"github.com/IBM/sarama"
 	"codeberg.org/transit-radar/transit-watcher/internal/config"
 	"codeberg.org/transit-radar/transit-watcher/internal/store"
+	"github.com/IBM/sarama"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 )
@@ -18,19 +19,19 @@ type Clients struct {
 	Store store.Store
 }
 
-func InitClients(config *config.Config) (*Clients, error) {
+func InitClients(config *config.WorkerConfig) (*Clients, error) {
 	var clients Clients
 
 	if err := clients.initKafka(&config.Kafka); err != nil {
-		return nil, errors.New("cannot init sarama client")
+		return nil, fmt.Errorf("cannot init sarama client: %w", err)
 	}
 
 	if err := clients.initRedis(&config.Redis); err != nil {
-		return nil, errors.New("cannot init redis client")
+		return nil, fmt.Errorf("cannot init redis client: %w", err)
 	}
 
 	if err := clients.initAsynq(&config.Redis); err != nil {
-		return nil, errors.New("cannot init asynq client")
+		return nil, fmt.Errorf("cannot init asynq client: %w", err)
 	}
 
 	return &clients, nil

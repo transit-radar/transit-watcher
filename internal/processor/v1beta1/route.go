@@ -12,12 +12,12 @@ import (
 )
 
 type routeProcessor struct {
-	config       *config.Config
+	config       *config.WorkerConfig
 	eventHandler events.EventHandler
 	store        store.Store
 }
 
-func NewRouteProcessor(config *config.Config, eventHandler events.EventHandler, store store.Store) processor.RouteProcessor {
+func NewRouteProcessor(config *config.WorkerConfig, eventHandler events.EventHandler, store store.Store) processor.RouteProcessor {
 	return &routeProcessor{
 		config:       config,
 		eventHandler: eventHandler,

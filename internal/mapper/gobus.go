@@ -1,7 +1,7 @@
 package mapper
 
 import (
-	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -21,10 +21,15 @@ func MapGoBusStop(stop gobus.Stop) (models.Stop, error) {
 	}
 
 	var lat, lng float64
-	if lat, err = stop.Geometry.Coordinates[0].Float64(); err != nil {
+	if lat, err = stop.Geometry.Coordinates[1].Float64(); err != nil {
 		return models.Stop{}, err
 	}
-	if lng, err = stop.Geometry.Coordinates[1].Float64(); err != nil {
+	if lng, err = stop.Geometry.Coordinates[0].Float64(); err != nil {
+		return models.Stop{}, err
+	}
+
+	stopType, err := MapGoBusStopType(stop)
+	if err != nil {
 		return models.Stop{}, err
 	}
 
@@ -36,6 +41,7 @@ func MapGoBusStop(stop gobus.Stop) (models.Stop, error) {
 		Code:     stop.Property.Code,
 		Name:     stop.Property.Name,
 		Location: models.LatLng{Latitude: lat, Longitude: lng},
+		Type:     stopType,
 		Hash:     hash,
 	}, nil
 }
@@ -63,7 +69,8 @@ func MapGoBusRoute(route gobus.Route) (models.Route, error) {
 			Value:      route.Info.Organization,
 		},
 		RouteType: routeType,
-		Hash:      hash,
+
+		Hash: hash,
 	}, nil
 }
 
@@ -73,13 +80,22 @@ func MapGoBusVariant(variant gobus.RouteVariant) (models.Variant, error) {
 		return models.Variant{}, err
 	}
 
+	stopIDs := make([]models.Identity, 0, len(variant.Stops))
+	for _, stop := range variant.Stops {
+		stopIDs = append(stopIDs, models.Identity{
+			Identifier: models.ExternalIdentifierEBMS,
+			Value:      stop.Id.String(),
+		})
+	}
+
 	return models.Variant{
 		ID: models.Identity{
 			Identifier: models.ExternalIdentifierEBMS,
 			Value:      variant.Id.String(),
 		},
-		Number: variant.Name,
-		Hash:   hash,
+		Number:  variant.Name,
+		StopIDs: stopIDs,
+		Hash:    hash,
 	}, nil
 }
 
@@ -109,5 +125,18 @@ func MapGoBusRouteType(route gobus.Route) (models.RouteType, error) {
 		return models.RouteTypeBus, nil
 	}
 
-	return models.RouteTypeUnspecified, errors.New("unhandled route type")
+	return models.RouteTypeUnspecified, fmt.Errorf("unhandled route type: %s", route.Number)
+}
+
+func MapGoBusStopType(stop gobus.Stop) (models.StopType, error) {
+	// unique values of stop type, identified by
+	// jq .features.[].properties.stopType | sort | uniq
+	switch stop.Property.TypeName {
+	case "Bãi hậu cần", "Bến Bãi QH 568", "Bến xe", "Ga Metro Số 1":
+		return models.StopTypeStation, nil
+	case "Biển treo", "Nhà chờ", "Ô sơn", "Trạm tạm", "Trụ - hộp thông tin", "Trụ dừng":
+		return models.StopTypeStopPlatform, nil
+	default:
+		return models.StopTypeUnspecified, fmt.Errorf("unhandled stop type: %s", stop.Property.TypeName)
+	}
 }

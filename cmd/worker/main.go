@@ -10,9 +10,11 @@ import (
 	"codeberg.org/transit-radar/transit-watcher/internal/clients"
 	"codeberg.org/transit-radar/transit-watcher/internal/config"
 	"codeberg.org/transit-radar/transit-watcher/internal/tasks"
-	"codeberg.org/transit-radar/transit-watcher/pkg/otelhelper"
+	"codeberg.org/transit-radar/transit-watcher/pkg/otel"
 	"github.com/hibiken/asynq"
 )
+
+const PackageName = "codeberg.org/transit-radar/transit-watcher/cmd/worker"
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -23,35 +25,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("attempt to gracefully shutdown")
+	slog.InfoContext(ctx, "attempt to gracefully shutdown")
 }
 
 func run(ctx context.Context) error {
-	config, err := config.LoadConfig()
-	if err != nil {
-		slog.Error("cannot load application config", "error", err)
+	cfg := config.NewWorkerConfig()
+	if err := cfg.Load(); err != nil {
+		slog.ErrorContext(ctx, "cannot load application config", "error", err)
 		return err
 	}
 
-	if err := otelhelper.Init(ctx, config.Application.Name); err != nil {
+	if err := otel.Init(ctx, cfg.Application.Name, PackageName); err != nil {
+		slog.ErrorContext(ctx, "cannot load otel config", "error", err)
 		return err
 	}
+	defer otel.Shutdown(context.Background())
 
-	clients, err := clients.InitClients(&config)
+	clients, err := clients.InitClients(cfg)
 	if err != nil {
 		slog.Error("cannot load clients", "error", err)
 		return err
 	}
 	defer clients.Close()
 
-	a := aggregator.NewAggregator(
-		&config,
-		clients.Kafka,
-		clients.Redis,
-	)
+	a, err := aggregator.NewAggregator(cfg, clients.Kafka, clients.Redis)
+	if err != nil {
+		slog.ErrorContext(ctx, "cannot create aggregator", "error", err)
+		return err
+	}
 
 	server := asynq.NewServer(asynq.RedisClientOpt{
-		Addr: config.Redis.Address,
+		Addr: cfg.Redis.Address,
 	}, asynq.Config{
 		Concurrency: 20,
 	})
@@ -60,6 +64,7 @@ func run(ctx context.Context) error {
 	mux.Handle(tasks.TaskScheduleMultiGoGeolocation, tasks.NewScheduleMultiGoGeolocationHandler(clients))
 	mux.Handle(tasks.TaskScheduleTTGTGeolocation, tasks.NewScheduleTTGTGeolocationHandler(clients))
 	mux.Handle(tasks.TaskAggregateGoBus, tasks.NewAggregateGoBusHandler(a))
+	mux.Handle(tasks.TaskAggregateGoBusStops, tasks.NewAggregateGoBusStopsHandler(a))
 	mux.Handle(tasks.TaskAggregateMultiGoGeolocation, tasks.NewAggregateMultiGoGeolocationHandler(a))
 	mux.Handle(tasks.TaskAggregateTTGTGeolocation, tasks.NewAggregateTTGTGeolocationHandler(a))
 
@@ -69,6 +74,7 @@ func run(ctx context.Context) error {
 	}()
 
 	if err := server.Run(mux); err != nil {
+		slog.ErrorContext(ctx, "cannot load server", "error", err)
 		return err
 	}
 

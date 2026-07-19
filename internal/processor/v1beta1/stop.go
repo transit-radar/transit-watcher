@@ -11,37 +11,37 @@ import (
 	"codeberg.org/transit-radar/transit-watcher/internal/store"
 )
 
-type geolocationProcessor struct {
+type stopProcessor struct {
 	config       *config.WorkerConfig
 	eventHandler events.EventHandler
 	store        store.Store
 }
 
-func NewGeolocationProcessor(config *config.WorkerConfig, eventHandler events.EventHandler, store store.Store) processor.GeolocationProcessor {
-	return &geolocationProcessor{
+func NewStopProcessor(config *config.WorkerConfig, eventHandler events.EventHandler, store store.Store) processor.StopProcessor {
+	return &stopProcessor{
 		config:       config,
 		eventHandler: eventHandler,
 		store:        store,
 	}
 }
 
-func (p *geolocationProcessor) Validate(ctx context.Context, geolocation models.Geolocation) error {
+func (p *stopProcessor) Validate(ctx context.Context, stop models.Stop) error {
 	// cache validation
-	var latest models.Geolocation
-	err := p.store.Get(ctx, CacheKey("geolocation", geolocation.VariantID.Value, geolocation.VehicleID.Value), &latest)
+	var latest models.Stop
+	err := p.store.Get(ctx, CacheKey("stop", stop.ID.Value), &latest)
 	if err != nil {
 		return err
 	}
 
-	if !geolocation.Timestamp.After(latest.Timestamp) {
+	if stop.Hash == latest.Hash {
 		return processor.ErrStaleData
 	}
 
 	return nil
 }
 
-func (p *geolocationProcessor) Publish(ctx context.Context, geolocation models.Geolocation) error {
-	r, err := v1beta1.MapGeolocation(geolocation)
+func (p *stopProcessor) Publish(ctx context.Context, stop models.Stop) error {
+	r, err := v1beta1.MapStop(stop)
 	if err != nil {
 		return err
 	}
@@ -52,14 +52,14 @@ func (p *geolocationProcessor) Publish(ctx context.Context, geolocation models.G
 	}
 
 	return p.eventHandler.Send(ctx,
-		p.config.Kafka.Topic.Geolocation,
+		p.config.Kafka.Topic.Stop,
 		event,
 	)
 }
 
-func (p *geolocationProcessor) Memoize(ctx context.Context, geolocation models.Geolocation) error {
+func (p *stopProcessor) Memoize(ctx context.Context, stop models.Stop) error {
 	return p.store.Set(ctx,
-		CacheKey("geolocation", geolocation.VariantID.Value, geolocation.VehicleID.Value),
-		geolocation,
+		CacheKey("stop", stop.ID.Value),
+		stop,
 	)
 }

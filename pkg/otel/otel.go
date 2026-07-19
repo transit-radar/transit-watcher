@@ -1,4 +1,4 @@
-package otelhelper
+package otel
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
-	"go.opentelemetry.io/otel"
+	otelsdk "go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
@@ -19,6 +19,8 @@ import (
 )
 
 type otelState struct {
+	packageName string
+
 	// tracer
 	tracer *trace.TracerProvider
 
@@ -37,13 +39,13 @@ func defaultState() *atomic.Value {
 	return v
 }
 
-func Init(ctx context.Context, name string) error {
+func Init(ctx context.Context, serviceName, packageName string) error {
+	setupState := otelState{packageName: packageName}
+
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceNameKey.String(name),
+		semconv.ServiceNameKey.String(serviceName),
 	)
-
-	setupState := otelState{}
 
 	// setup tracer
 	spanExporter, err := autoexport.NewSpanExporter(ctx)
@@ -55,7 +57,7 @@ func Init(ctx context.Context, name string) error {
 		trace.WithBatcher(spanExporter),
 		trace.WithResource(res),
 	)
-	otel.SetTracerProvider(tracerProvider)
+	otelsdk.SetTracerProvider(tracerProvider)
 	setupState.tracer = tracerProvider
 
 	// setup meter
@@ -66,8 +68,9 @@ func Init(ctx context.Context, name string) error {
 
 	meterProvider := metric.NewMeterProvider(
 		metric.WithReader(metricReader),
+		metric.WithResource(res),
 	)
-	otel.SetMeterProvider(meterProvider)
+	otelsdk.SetMeterProvider(meterProvider)
 	setupState.meter = meterProvider
 
 	// setup logger
@@ -78,34 +81,44 @@ func Init(ctx context.Context, name string) error {
 
 	loggerProvider := log.NewLoggerProvider(
 		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+		log.WithResource(res),
 	)
 	global.SetLoggerProvider(loggerProvider)
 	setupState.logger = loggerProvider
-
-	slog.SetDefault(otelslog.NewLogger("", otelslog.WithLoggerProvider(loggerProvider)))
 
 	// setup propagator.
 	prop := propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	)
-	otel.SetTextMapPropagator(prop)
+	otelsdk.SetTextMapPropagator(prop)
+
+	slog.SetDefault(otelslog.NewLogger(packageName))
 
 	state.Store(setupState)
 
 	return nil
 }
 
-func Shutdown(ctx context.Context) error {
+func loadState() (otelState, error) {
 	v := state.Load()
 	switch s := v.(type) {
 	case nil:
-		return errors.New("opentelemetry hasn't been initialised")
+		return otelState{}, errors.New("opentelemetry hasn't been initialised")
 	case otelState:
-		return shutdown(ctx, s)
+		return s, nil
 	default:
-		return errors.New("invalid state")
+		return otelState{}, errors.New("invalid state")
 	}
+}
+
+func Shutdown(ctx context.Context) error {
+	state, err := loadState()
+	if err != nil {
+		return err
+	}
+
+	return shutdown(ctx, state)
 }
 
 func shutdown(ctx context.Context, s otelState) error {

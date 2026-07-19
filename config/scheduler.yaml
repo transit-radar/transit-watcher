@@ -1,5 +1,5 @@
 application:
-  name: scheduler.watcher.transitradar.app
+  name: app.transitradar.watcher.scheduler
 redis:
   address: localhost:6379
   enable: true

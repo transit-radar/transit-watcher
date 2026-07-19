@@ -1,0 +1,5 @@
+application:
+  name: app.transitradar.watcher.worker
+redis:
+  address: localhost:6379
+  enable: true

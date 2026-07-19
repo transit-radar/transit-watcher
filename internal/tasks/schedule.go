@@ -9,9 +9,8 @@ import (
 	"codeberg.org/transit-radar/transit-watcher/internal/clients"
 	"codeberg.org/transit-radar/transit-watcher/internal/processor/v1beta1"
 	"codeberg.org/transit-radar/transit-watcher/internal/store"
-	"codeberg.org/transit-radar/transit-watcher/pkg/otelhelper"
+	"codeberg.org/transit-radar/transit-watcher/pkg/otel"
 	"github.com/hibiken/asynq"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 )
 
@@ -28,9 +27,10 @@ func NewScheduleMultiGoGeolocationHandler(clients *clients.Clients) asynq.Handle
 }
 
 func (p *scheduleMultiGoGeolocationHandler) ProcessTask(ctx context.Context, t *asynq.Task) error {
-	ctx = otelhelper.ContextFromHeader(ctx, t.Headers())
+	ctx, span := otel.Tracer().Start(otel.ContextFromHeader(ctx, t.Headers()), t.Type())
+	defer span.End()
 
-	slog.InfoContext(ctx, "processing multigo scheduler")
+	slog.DebugContext(ctx, "processing multigo scheduler")
 
 	routes, err := p.store.Members(ctx, v1beta1.CacheKey("routes", "bus"))
 	if err != nil {
@@ -59,9 +59,8 @@ func (p *scheduleMultiGoGeolocationHandler) ProcessTask(ctx context.Context, t *
 				return err
 			}
 
-			ctx, _ := otel.GetTracerProvider().Tracer("transit-watcher").Start(ctx, "task/multigo-geolocation")
 			carrier := propagation.MapCarrier{}
-			otel.GetTextMapPropagator().Inject(ctx, &carrier)
+			otel.TextMapPropagator().Inject(ctx, &carrier)
 			maps.Copy(task.Headers(), carrier)
 
 			_, err = p.asynqClient.EnqueueContext(ctx, task, asynq.MaxRetry(0), asynq.Unique(30*time.Second))
@@ -87,9 +86,10 @@ func NewScheduleTTGTGeolocationHandler(clients *clients.Clients) asynq.Handler {
 }
 
 func (p *scheduleTTGTGeolocationHandler) ProcessTask(ctx context.Context, t *asynq.Task) error {
-	ctx = otelhelper.ContextFromHeader(ctx, t.Headers())
+	ctx, span := otel.Tracer().Start(otel.ContextFromHeader(ctx, t.Headers()), t.Type())
+	defer span.End()
 
-	slog.InfoContext(ctx, "processing ttgt scheduler")
+	slog.DebugContext(ctx, "processing ttgt scheduler")
 
 	routes, err := p.store.Members(ctx, v1beta1.CacheKey("routes", "metro"))
 	if err != nil {
@@ -117,9 +117,8 @@ func (p *scheduleTTGTGeolocationHandler) ProcessTask(ctx context.Context, t *asy
 				return err
 			}
 
-			ctx, _ := otel.GetTracerProvider().Tracer("transit-watcher").Start(ctx, "task/ttgt-geolocation")
 			carrier := propagation.MapCarrier{}
-			otel.GetTextMapPropagator().Inject(ctx, &carrier)
+			otel.TextMapPropagator().Inject(ctx, &carrier)
 			maps.Copy(task.Headers(), carrier)
 
 			_, err = p.asynqClient.EnqueueContext(ctx, task, asynq.MaxRetry(0), asynq.Unique(1*time.Second))

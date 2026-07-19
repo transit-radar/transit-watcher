@@ -77,23 +77,20 @@
     # Add dependencies that are only needed for development
     devShells = forAllSystems (system: let
       pkgs = nixpkgsFor.${system};
-      tansu = self.packages.${system}.tansu;
     in {
       default = pkgs.mkShell {
-        buildInputs = with pkgs;
-          [
-            go
-            gopls
-            gotools
-            go-tools
-            podman-compose
-            kafkactl
-            redis
-            protobuf
-            antigravity-cli
-            redpanda-client
-          ]
-          ++ [tansu];
+        OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
+
+        buildInputs = with pkgs; [
+          go
+          gopls
+          gotools
+          go-tools
+          kafkactl
+          redis
+          protobuf
+          redpanda-client
+        ];
       };
     });
 

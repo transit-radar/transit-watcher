@@ -18,6 +18,7 @@ import (
 )
 
 type Aggregator struct {
+	stop        processor.StopProcessor
 	route       processor.RouteProcessor
 	variant     processor.VariantProcessor
 	geolocation processor.GeolocationProcessor
@@ -27,17 +28,18 @@ type Aggregator struct {
 	multiGo multigo.Client
 	ttgt    ttgt.Client
 
-	rateLimit *rate.Limiter
+	rateLimit   *rate.Limiter
+	ebmsLimiter *rate.Limiter
 }
 
 func NewAggregator(
-	config *config.Config,
+	config *config.WorkerConfig,
 	kafka sarama.Client,
 	redis *redis.Client,
-) *Aggregator {
+) (*Aggregator, error) {
 	eventHandler, err := events.NewKafkaEventHandler(config.Application.Name, kafka)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	store := store.NewRedisStore(redis)
@@ -45,19 +47,28 @@ func NewAggregator(
 	route := v1beta1.NewRouteProcessor(config, eventHandler, store)
 	variant := v1beta1.NewVariantProcessor(config, eventHandler, store)
 	geolocation := v1beta1.NewGeolocationProcessor(config, eventHandler, store)
+	stop := v1beta1.NewStopProcessor(config, eventHandler, store)
+
+	ebms, err := ebms.NewClient()
+	if err != nil {
+		return nil, err
+	}
 
 	return &Aggregator{
 		// processors
 		route:       route,
 		variant:     variant,
 		geolocation: geolocation,
+		stop:        stop,
 
 		// clients
+		ebms:    ebms,
 		goBus:   gobus.NewClient(),
 		multiGo: multigo.NewClient(),
 		ttgt:    ttgt.NewClient(),
 
 		// currently limits 1 event per 50ms
-		rateLimit: rate.NewLimiter(rate.Every(50*time.Millisecond), 1),
-	}
+		rateLimit:   rate.NewLimiter(rate.Every(50*time.Millisecond), 1),
+		ebmsLimiter: rate.NewLimiter(rate.Every(50*time.Millisecond), 1),
+	}, nil
 }

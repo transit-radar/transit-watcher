@@ -1,18 +1,6 @@
 package config
 
-import (
-	"fmt"
-	"log/slog"
-
-	"github.com/spf13/viper"
-)
-
-type Config struct {
-	Application ApplicationConfig `mapstructure:"application"`
-
-	Kafka KafkaConfig `mapstructure:"kafka"`
-	Redis RedisConfig `mapstructure:"redis"`
-}
+import "time"
 
 type ApplicationConfig struct {
 	Name string `mapstructure:"name"`
@@ -26,50 +14,34 @@ type KafkaConfig struct {
 }
 
 type KafkaTopic struct {
-	Route       string `mapstructure:"route"`
-	Variant     string `mapstructure:"variant"`
-	Stop        string `mapstructure:"stop"`
-	Geolocation string `mapstructure:"geolocation"`
+	Route        string `mapstructure:"route"`
+	Variant      string `mapstructure:"variant"`
+	VariantStops string `mapstructure:"variantStops"`
+	Stop         string `mapstructure:"stop"`
+	Geolocation  string `mapstructure:"geolocation"`
 }
 
 type RedisConfig struct {
 	Address string `mapstructure:"address"`
 }
 
-func SetDefault() {
-	viper.SetDefault("application.name", "transit-radar")
+type TaskConfig struct {
+	// Aggregate performs routes, variants, and stops data aggregation from
+	// multiple supported sources (currently GoBus and EBMS)
+	Aggregate TaskSpec `mapstructure:"aggregate"`
 
-	viper.SetDefault("kafka.seeds", []string{"localhost:19092"})
-	viper.SetDefault("kafka.publishTopics.route", "processor.v1beta1.route")
-	viper.SetDefault("kafka.publishTopics.variant", "processor.v1beta1.variant")
-	viper.SetDefault("kafka.publishTopics.stop", "processor.v1beta1.stop")
-	viper.SetDefault("kafka.publishTopics.geolocation", "processor.v1beta1.geolocation")
-
-	viper.SetDefault("redis.address", "localhost:6379")
-
-	viper.SetDefault("task.data.enable", true)
-	viper.SetDefault("task.data.crontab", "5 23,0,1,11,12,13 * * *")
-
-	viper.SetDefault("task.geolocation.enable", true)
-	viper.SetDefault("task.geolocation.crontab", "@every 30s")
-
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
+	// Geolocation retrieve geolocation data per cached routes from MultiGo
+	MultiGoGeolocation TaskSpec `mapstructure:"multiGoGeolocation"`
+	TTGTGeolocation    TaskSpec `mapstructure:"ttgtGeolocation"`
 }
 
-func LoadConfig() (Config, error) {
-	SetDefault()
+type TaskSpec struct {
+	// Whether to enable or disable the task
+	Enable bool `mapstructure:"enable"`
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		slog.Info("no config found, using defaults...", "error", err)
-	}
+	// Crontab spec to trigger the task periodically
+	Crontab string `mapstructure:"crontab"`
 
-	var config Config
-	err = viper.Unmarshal(&config)
-	if err != nil {
-		return Config{}, fmt.Errorf("cannot parse config: %e", err)
-	}
-
-	return config, nil
+	MaxRetry *int           `mapstructure:"maxRetry"`
+	Unique   *time.Duration `mapstructure:"unique"`
 }

@@ -9,8 +9,10 @@ import (
 
 	"codeberg.org/transit-radar/transit-watcher/internal/config"
 	"codeberg.org/transit-radar/transit-watcher/internal/scheduler"
-	"codeberg.org/transit-radar/transit-watcher/pkg/otelhelper"
+	"codeberg.org/transit-radar/transit-watcher/pkg/otel"
 )
+
+const PackageName = "codeberg.org/transit-radar/transit-watcher/cmd/scheduler"
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -30,10 +32,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("cannot load scheduler config: %w", err)
 	}
 
-	if err := otelhelper.Init(ctx, cfg.Application.Name); err != nil {
+	if err := otel.Init(ctx, cfg.Application.Name, PackageName); err != nil {
 		return err
 	}
-	defer otelhelper.Shutdown(context.Background())
+	defer otel.Shutdown(context.Background())
 
 	scheduler, err := scheduler.NewScheduler(ctx, cfg)
 	if err != nil {

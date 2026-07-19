@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -16,27 +15,6 @@ type SchedulerConfig struct {
 	Task TaskConfig `mapstructure:"task"`
 }
 
-type TaskConfig struct {
-	// Aggregate performs routes, variants, and stops data aggregation from
-	// multiple supported sources (currently GoBus and EBMS)
-	Aggregate TaskSpec `mapstructure:"aggregate"`
-
-	// Geolocation retrieve geolocation data per cached routes from MultiGo
-	MultiGoGeolocation TaskSpec `mapstructure:"multiGoGeolocation"`
-	TTGTGeolocation    TaskSpec `mapstructure:"ttgtGeolocation"`
-}
-
-type TaskSpec struct {
-	// Whether to enable or disable the task
-	Enable bool `mapstructure:"enable"`
-
-	// Crontab spec to trigger the task periodically
-	Crontab string `mapstructure:"crontab"`
-
-	MaxRetry *int           `mapstructure:"maxRetry"`
-	Unique   *time.Duration `mapstructure:"unique"`
-}
-
 func NewSchedulerConfig() *SchedulerConfig {
 	c := &SchedulerConfig{}
 	c.SetDefault()
@@ -44,6 +22,8 @@ func NewSchedulerConfig() *SchedulerConfig {
 }
 
 func (c *SchedulerConfig) SetDefault() {
+	viper.SetDefault("application.name", "app.transitradar.watcher.scheduler")
+
 	// redis
 	viper.SetDefault("redis.address", "localhost:6379")
 

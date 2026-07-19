@@ -1,3 +1,4 @@
 include:
-  - ./services/tansu.compose.yaml
-  - ./services/redis.compose.yaml
+  - ./services/redpanda/redpanda.compose.yaml
+  - ./services/valkey/valkey.compose.yaml
+  - ./services/opentelemetry/opentelemetry.compose.yaml

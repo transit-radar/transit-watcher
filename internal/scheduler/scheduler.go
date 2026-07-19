@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"codeberg.org/transit-radar/transit-watcher/internal/config"
+	"codeberg.org/transit-radar/transit-watcher/pkg/otel"
 	"github.com/hibiken/asynq"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 )
 
@@ -38,15 +38,13 @@ func NewScheduler(ctx context.Context, cfg *config.SchedulerConfig) (Scheduler, 
 			Location: loc,
 			PreEnqueueFunc: func(task *asynq.Task, opts []asynq.Option) {
 				// otel trace propagation
-				tracer := otel.GetTracerProvider().Tracer(cfg.Application.Name)
-				ctx, _ := tracer.Start(ctx, fmt.Sprintf("scheduler/%s", task.Type()))
+				ctx, span := otel.Tracer().Start(ctx, task.Type())
+				defer span.End()
 
 				slog.DebugContext(ctx, "scheduling task...", slog.String("task", task.Type()))
 
-				prop := otel.GetTextMapPropagator()
 				carrier := propagation.MapCarrier{}
-				prop.Inject(ctx, &carrier)
-
+				otel.TextMapPropagator().Inject(ctx, &carrier)
 				maps.Copy(task.Headers(), carrier)
 			},
 		},

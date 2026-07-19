@@ -1,10 +1,22 @@
 package models
 
-type Stop struct {
-	ID       Identity
-	Code     string
-	Name     string
-	Location LatLng
+type StopType int
 
-	Hash uint64
+const (
+	StopTypeUnspecified StopType = iota
+	StopTypeStopPlatform
+	StopTypeStation
+	StopTypeEntraceExit
+	StopTypeGenericNode
+	StopTypeBoardingArea
+)
+
+type Stop struct {
+	ID       Identity `redis:"-"`
+	Code     string   `redis:"code"`
+	Name     string   `redis:"name"`
+	Type     StopType `redis:"-"`
+	Location LatLng   `redis:"-"`
+
+	Hash uint64 `redis:"hash"`
 }

@@ -29,3 +29,9 @@ type VariantProcessor interface {
 	Publish(context.Context, models.Route, models.Variant) error
 	Memoize(context.Context, models.Route, models.Variant) error
 }
+
+type StopProcessor interface {
+	Validate(context.Context, models.Stop) error
+	Publish(context.Context, models.Stop) error
+	Memoize(context.Context, models.Stop) error
+}

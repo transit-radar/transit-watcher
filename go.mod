@@ -5,12 +5,13 @@ go 1.26
 require github.com/google/uuid v1.6.0
 
 require (
-	buf.build/gen/go/transit-radar/apis/protocolbuffers/go v1.36.11-20260705102036-78d566695124.1
+	buf.build/gen/go/transit-radar/apis/protocolbuffers/go v1.36.11-20260715163434-9e6a2f5112bb.1
 	github.com/IBM/sarama v1.45.2
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/gohugoio/hashstructure v0.6.0
 	github.com/hibiken/asynq v0.26.0
+	github.com/icza/gox v0.2.14
 	github.com/leebenson/conform v1.2.3
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/stretchr/testify v1.11.1

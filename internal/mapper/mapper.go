@@ -1,7 +1,7 @@
 package mapper
 
 import (
-	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -39,5 +39,5 @@ func RouteType(route models.Route) (radarv1.RouteType, error) {
 		return radarv1.RouteType_ROUTE_TYPE_BUS, nil
 	}
 
-	return radarv1.RouteType_ROUTE_TYPE_UNSPECIFIED, errors.New("unhandled route type")
+	return radarv1.RouteType_ROUTE_TYPE_UNSPECIFIED, fmt.Errorf("unhandled route type for: %s", route.Number)
 }

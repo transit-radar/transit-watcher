@@ -1,4 +1,4 @@
-package otelhelper
+package otel
 
 import (
 	"context"

@@ -12,12 +12,12 @@ import (
 )
 
 type variantProcessor struct {
-	config       *config.Config
+	config       *config.WorkerConfig
 	eventHandler events.EventHandler
 	store        store.Store
 }
 
-func NewVariantProcessor(config *config.Config, eventHandler events.EventHandler, store store.Store) processor.VariantProcessor {
+func NewVariantProcessor(config *config.WorkerConfig, eventHandler events.EventHandler, store store.Store) processor.VariantProcessor {
 	return &variantProcessor{
 		config:       config,
 		eventHandler: eventHandler,
@@ -40,7 +40,7 @@ func (p *variantProcessor) Validate(ctx context.Context, route models.Route, var
 }
 
 func (p *variantProcessor) Publish(ctx context.Context, route models.Route, variant models.Variant) error {
-	r, err := v1beta1.MapVariant(variant)
+	r, err := v1beta1.MapTrip(route, variant)
 	if err != nil {
 		return err
 	}
@@ -50,10 +50,27 @@ func (p *variantProcessor) Publish(ctx context.Context, route models.Route, vari
 		return err
 	}
 
-	return p.eventHandler.Send(ctx,
-		p.config.Kafka.Topic.Variant,
-		event,
-	)
+	if err := p.eventHandler.Send(ctx, p.config.Kafka.Topic.Variant, event); err != nil {
+		return err
+	}
+
+	for i, stop := range variant.StopIDs {
+		stops, err := v1beta1.MapTripStop(route.ID, variant.ID, stop, int32(i))
+		if err != nil {
+			return err
+		}
+
+		stopsEvent, err := p.eventHandler.CreateEvent(stops)
+		if err != nil {
+			return err
+		}
+
+		if err := p.eventHandler.Send(ctx, p.config.Kafka.Topic.VariantStops, stopsEvent); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *variantProcessor) Memoize(ctx context.Context, route models.Route, variant models.Variant) error {

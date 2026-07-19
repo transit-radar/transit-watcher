@@ -3,6 +3,7 @@ package aggregator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"codeberg.org/transit-radar/transit-watcher/internal/mapper"
@@ -59,11 +60,11 @@ func (a *Aggregator) AggregateGoBusStops(ctx context.Context) error {
 }
 
 func (a *Aggregator) processRoute(ctx context.Context, route gobus.Route) (models.Route, error) {
-	logger := slog.With(slog.Any("routeID", route.Id))
+	logger := slog.With(slog.String("routeID", route.Id.String()))
 
 	r, err := mapper.MapGoBusRoute(route)
 	if err != nil {
-		return models.Route{}, err
+		return models.Route{}, fmt.Errorf("failed to map gobus route: %w", err)
 	}
 
 	if err := a.enrichRoute(ctx, &r); err != nil {
@@ -76,16 +77,16 @@ func (a *Aggregator) processRoute(ctx context.Context, route gobus.Route) (model
 			return r, nil
 		}
 
-		return r, err
+		return r, fmt.Errorf("failed to validate route: %w", err)
 	}
 
 	if err := a.route.Publish(ctx, r); err != nil {
-		return r, err
+		return r, fmt.Errorf("failed to publish update: %w", err)
 	}
 	logger.DebugContext(ctx, "published route payload")
 
 	if err := a.route.Memoize(ctx, r); err != nil {
-		return r, err
+		return r, fmt.Errorf("failed to memoize route: %w", err)
 	}
 	logger.DebugContext(ctx, "memoized retrieved route as latest")
 
@@ -93,9 +94,11 @@ func (a *Aggregator) processRoute(ctx context.Context, route gobus.Route) (model
 }
 
 func (a *Aggregator) enrichRoute(ctx context.Context, route *models.Route) error {
-	return nil
+	logger := slog.With(slog.String("routeID", route.ID.Value))
 
-	logger := slog.With(slog.Any("routeID", route.ID.Value))
+	if err := a.ebmsLimiter.Wait(ctx); err != nil {
+		return err
+	}
 
 	r, err := a.ebms.GetRouteByID(ctx, route.ID.Value)
 	if err != nil {
@@ -103,18 +106,18 @@ func (a *Aggregator) enrichRoute(ctx context.Context, route *models.Route) error
 		return err
 	}
 
-	route.Color = r.Color
-	route.Type = r.Type
-	route.Organization = r.Orgs
-	route.TripDuration = r.TimeOfTrip
-	route.Headway = r.Headway
-	route.OutboundName = r.OutBoundName
-	route.InboundName = r.InBoundName
-	route.OutboundDescription = r.OutBoundDescription
-	route.InboundDescription = r.InBoundDescription
-	route.TotalTrip = r.TotalTrip
-	route.Tickets = r.Tickets
-	route.OperationTime = models.OperationTime{
+	route.Color = &r.Color
+	route.FareType = &r.Type
+	route.Organization = &r.Orgs
+	route.TripDuration = &r.TimeOfTrip
+	route.Headway = &r.Headway
+	route.OutboundName = &r.OutBoundName
+	route.InboundName = &r.InBoundName
+	route.OutboundDescription = &r.OutBoundDescription
+	route.InboundDescription = &r.InBoundDescription
+	route.TotalTrip = &r.TotalTrip
+	route.Tickets = &r.Tickets
+	route.OperationTime = &models.OperationTime{
 		From: r.OperationTime.From,
 		To:   r.OperationTime.To,
 	}
@@ -123,11 +126,14 @@ func (a *Aggregator) enrichRoute(ctx context.Context, route *models.Route) error
 }
 
 func (a *Aggregator) processVariant(ctx context.Context, route models.Route, variant gobus.RouteVariant) error {
-	logger := slog.With(slog.Any("routeID", route.ID.Value), slog.Any("variantID", variant.Id))
+	logger := slog.With(
+		slog.String("routeID", route.ID.Value),
+		slog.String("variantID", variant.Id.String()),
+	)
 
 	v, err := mapper.MapGoBusVariant(variant)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to map gobus variant to trip: %w", err)
 	}
 
 	if err := a.variant.Validate(ctx, route, v); err != nil {
@@ -136,16 +142,16 @@ func (a *Aggregator) processVariant(ctx context.Context, route models.Route, var
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("failed to validate variant: %w", err)
 	}
 
 	if err := a.variant.Publish(ctx, route, v); err != nil {
-		return err
+		return fmt.Errorf("failed to publish variant update: %w", err)
 	}
 	logger.DebugContext(ctx, "published variant payload")
 
 	if err := a.variant.Memoize(ctx, route, v); err != nil {
-		return err
+		return fmt.Errorf("failed to memoize variant: %w", err)
 	}
 	logger.DebugContext(ctx, "memoized retrieved variant as latest")
 
@@ -153,9 +159,28 @@ func (a *Aggregator) processVariant(ctx context.Context, route models.Route, var
 }
 
 func (a *Aggregator) processStop(ctx context.Context, stop gobus.Stop) error {
-	_, err := mapper.MapGoBusStop(stop)
+	logger := slog.With(slog.String("stopID", stop.Property.Id.String()))
+
+	s, err := mapper.MapGoBusStop(stop)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to map gobus stop: %w", err)
+	}
+
+	if err := a.stop.Validate(ctx, s); err != nil {
+		if errors.Is(err, processor.ErrStaleData) {
+			logger.InfoContext(ctx, "retrieved stop is stale, skipping...")
+			return nil
+		}
+
+		return fmt.Errorf("failed to validate stop: %w", err)
+	}
+
+	if err := a.stop.Publish(ctx, s); err != nil {
+		return fmt.Errorf("failed to publish stop update: %w", err)
+	}
+
+	if err := a.stop.Memoize(ctx, s); err != nil {
+		return fmt.Errorf("failed to memoize stop: %w", err)
 	}
 
 	return nil
